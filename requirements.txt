@@ -5,7 +5,9 @@
 # NAO instale estas versoes fora do ambiente de laboratorio da disciplina.
 
 Flask==0.12.2
-Jinja2==2.10.1
+Jinja2==2.11.3
 Werkzeug==0.15.4
 PyYAML==5.1
 requests==2.6.0
+markupsafe==2.0.1
+itsdangerous==0.24
