@@ -1,0 +1,11 @@
+# Dependencias fixadas em versoes ANTIGAS DE PROPOSITO, para que
+# ferramentas de SCA (Software Composition Analysis) como pip-audit,
+# Safety, Trivy ou Dependabot encontrem CVEs conhecidas durante o curso.
+#
+# NAO instale estas versoes fora do ambiente de laboratorio da disciplina.
+
+Flask==0.12.2
+Jinja2==2.10.1
+Werkzeug==0.15.4
+PyYAML==5.1
+requests==2.6.0
