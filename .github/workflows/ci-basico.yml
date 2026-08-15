@@ -1,0 +1,96 @@
+# Workflow de exemplo: ci-basico.yml
+#
+# Usado no Encontro 2 do Modulo 1 (Arquitetura CI/CD e GitOps).
+#
+# ESTE ARQUIVO FICA DE PROPOSITO EM UMA PASTA COM HIFEN
+# (".github-workflows-exemplo") DENTRO DO REPOSITORIO DE MATERIAL
+# DIDATICO, e nao em ".github/workflows/". Isso evita que o GitHub
+# tente executa-lo automaticamente aqui, ja que este repositorio e
+# apenas o material da disciplina, nao o repositorio de trabalho do aluno.
+#
+# Para usar de verdade, copie este arquivo para dentro do SEU proprio
+# repositorio, no caminho:
+#
+#   .github/workflows/ci-basico.yml
+#
+# (Veja o passo a passo completo no Encontro 2.)
+
+name: CI Basico - TaskFlow
+
+# "on" define os GATILHOS deste workflow: quando ele deve ser executado.
+on:
+  # Roda a cada push direto no branch main.
+  push:
+    branches: [main]
+
+  # Roda a cada Pull Request que tenha a main como destino. Este e o
+  # gatilho mais importante do ponto de vista de seguranca: garante que
+  # o codigo seja verificado ANTES de ser mesclado ao branch principal.
+  pull_request:
+    branches: [main]
+
+  # Permite disparar o workflow manualmente pela aba "Actions" do GitHub,
+  # util para testes ou reprocessamentos sob demanda.
+  workflow_dispatch:
+
+jobs:
+  # Nome do job - usado tambem para configurar o branch protection rule
+  # ("Require status checks to pass before merging") no Encontro 2.
+  build-e-lint:
+    # Runner hospedado pelo proprio GitHub, com Ubuntu ja instalado.
+    # Gratuito para repositorios publicos, com cota mensal para privados.
+    runs-on: ubuntu-latest
+
+    steps:
+      # -----------------------------------------------------------------
+      # Passo 1: trazer o codigo do repositorio para dentro do runner.
+      #
+      # "actions/checkout" e uma ACTION oficial do GitHub (reutilizavel,
+      # publicada no Marketplace) que faz o equivalente a um "git clone"
+      # do repositorio e branch/commit corretos dentro do runner.
+      # -----------------------------------------------------------------
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------
+      # Passo 2: configurar a versao do Python que sera usada no runner.
+      #
+      # Fixamos a versao (3.10) para reproduzir o mesmo ambiente que os
+      # alunos usam localmente, evitando builds "funciona na minha
+      # maquina, mas quebra no CI".
+      # -----------------------------------------------------------------
+      - name: Configurar Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      # -----------------------------------------------------------------
+      # Passo 3: instalar as dependencias da aplicacao TaskFlow.
+      #
+      # Usamos --upgrade pip apenas para evitar avisos de versao antiga
+      # do proprio pip - isso NAO afeta as versoes fixadas em
+      # requirements.txt (que sao antigas de proposito, para uso futuro
+      # com ferramentas de SCA no Modulo 3).
+      # -----------------------------------------------------------------
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # -----------------------------------------------------------------
+      # Passo 4: verificacao basica de lint/sintaxe.
+      #
+      # "python -m py_compile" apenas confirma que o arquivo compila sem
+      # erros de sintaxe - e a checagem mais simples possivel. Nao e um
+      # substituto para testes automatizados nem para analise de
+      # seguranca (SAST/SCA), que serao adicionados a esteira no
+      # Modulo 3. Servico intencionalmente minimo neste encontro, para
+      # focar no entendimento da MECANICA do pipeline, nao ainda no
+      # conteudo de seguranca especifico.
+      #
+      # Alternativa comum em projetos reais: usar "flake8" ou "ruff"
+      # para um lint mais completo. Fica como sugestao de exploracao
+      # extra, mas nao e cobrado nesta disciplina.
+      # -----------------------------------------------------------------
+      - name: Verificar sintaxe (py_compile)
+        run: python -m py_compile app.py
