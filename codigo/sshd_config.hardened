@@ -1,0 +1,106 @@
+# =============================================================================
+# EXEMPLO DIDÁTICO de sshd_config com diretivas de hardening.
+#
+# ATENÇÃO: este arquivo é MATERIAL DE ESTUDO para a disciplina de DevSecOps.
+# NÃO copie e cole cegamente em um servidor de produção. Cada ambiente tem
+# requisitos diferentes (usuários, automações que dependem de senha, portas
+# já em uso, etc.). Sempre:
+#   1. Faça backup do arquivo original antes de editar:
+#        cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
+#   2. Valide a sintaxe antes de reiniciar o serviço:
+#        sshd -t
+#   3. Mantenha uma sessão SSH ativa aberta enquanto testa uma nova
+#      configuração, para não se trancar para fora do servidor.
+#   4. Reinicie o serviço só depois de validar:
+#        systemctl restart ssh
+# =============================================================================
+
+# --- Rede -------------------------------------------------------------------
+
+# Porta padrão do SSH é 22. Mudar a porta (ex: 2222) NÃO é uma medida de
+# segurança real — é apenas "segurança por obscuridade": reduz o ruído de
+# scanners automatizados na porta padrão, mas não impede um atacante
+# direcionado, que vai simplesmente escanear todas as portas.
+# Use isso como camada extra, nunca como controle principal.
+Port 22
+
+# Restringe o SSH a escutar apenas em interfaces específicas, se aplicável.
+# ListenAddress 0.0.0.0
+
+# --- Autenticação -------------------------------------------------------------
+
+# Nunca permitir login direto como root via SSH. Quem precisar de
+# privilégios administrativos deve logar com usuário comum e usar `sudo`.
+# Isso garante rastreabilidade (logs mostram QUEM executou o quê).
+PermitRootLogin no
+
+# Desabilita autenticação por senha, forçando o uso de par de chaves
+# pública/privada. Chaves são muito mais resistentes a ataques de
+# força bruta e a reuso de senha vazada em outro serviço.
+PasswordAuthentication no
+
+# Desabilita autenticação com senha vazia (defesa em profundidade,
+# redundante com PasswordAuthentication no, mas explícito por clareza).
+PermitEmptyPasswords no
+
+# Garante que apenas a autenticação por chave pública é aceita.
+PubkeyAuthentication yes
+
+# Desabilita métodos de autenticação legados/menos seguros.
+KerberosAuthentication no
+GSSAPIAuthentication no
+
+# Limita quantas tentativas de autenticação são aceitas por conexão
+# antes de derrubar a sessão.
+MaxAuthTries 3
+
+# Tempo limite (em segundos) para o cliente completar o login.
+LoginGraceTime 30
+
+# --- Restrição de usuários ----------------------------------------------------
+
+# Restringe quais usuários podem se conectar via SSH. Ajuste para os
+# usuários reais do seu ambiente.
+AllowUsers aluno
+
+# Alternativa por grupo, caso prefira gerenciar via grupos do SO:
+# AllowGroups ssh-users
+
+# --- Sessão e encaminhamento ---------------------------------------------------
+
+# Desabilita o encaminhamento de X11 se não for necessário (reduz superfície
+# de ataque em servidores que não precisam de aplicações gráficas).
+X11Forwarding no
+
+# Desabilita o encaminhamento de agente SSH por padrão, pois pode ser
+# abusado para "saltar" para outros hosts usando as chaves do usuário
+# conectado, caso o servidor seja comprometido.
+AllowAgentForwarding no
+
+# Define um tempo de inatividade após o qual sessões ociosas são encerradas.
+ClientAliveInterval 300
+ClientAliveCountMax 2
+
+# --- Banner e informação exposta ----------------------------------------------
+
+# Evita vazar a versão do SO/kernel no banner de boas-vindas do SSH.
+DebianBanner no
+
+# Exibe um aviso legal/institucional antes do login (opcional, mas comum
+# em ambientes corporativos).
+# Banner /etc/issue.net
+
+# --- Logging ------------------------------------------------------------------
+
+# Nível de log mais detalhado, útil para auditoria e para alimentar o
+# fail2ban com informações de tentativas de login malsucedidas.
+LogLevel VERBOSE
+
+# --- Subsistema SFTP (se usado) -----------------------------------------------
+
+Subsystem sftp /usr/lib/openssh/sftp-server
+
+# =============================================================================
+# Fim do exemplo. Consulte a documentação oficial do OpenSSH para a lista
+# completa de diretivas: https://www.openssh.com/manual.html
+# =============================================================================
