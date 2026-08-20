@@ -1,0 +1,109 @@
+# Dockerfile HARDENED - versao corrigida usada no Modulo 2 (Encontro 4).
+#
+# Esta e a versao corrigida do arquivo original em `app-exemplo/Dockerfile`.
+# Cada comentario "# CORRIGIDO (FALHA N)" explica a mudanca em relacao a
+# falha original correspondente, numerada exatamente como no Dockerfile
+# inseguro (FALHA 1 a FALHA 6).
+#
+# IMPORTANTE: este arquivo corrige apenas problemas de HARDENING de imagem
+# e container (Modulo 2). As vulnerabilidades de CODIGO da aplicacao
+# (SQL Injection, XSS, senha em texto puro, etc.) sao tratadas nos
+# Modulos 3 e 4 (SAST/SCA/DAST) e nao fazem parte do escopo deste arquivo.
+
+# ---------------------------------------------------------------------------
+# STAGE 1: build - instala dependencias em um estagio separado
+# ---------------------------------------------------------------------------
+# CORRIGIDO (FALHA 1): tag fixada em vez de "latest". Usamos "slim" para
+# reduzir a superficie de ataque (menos pacotes de SO = menos CVEs
+# possiveis) e uma versao especifica do Python para builds reprodutiveis.
+# Em ambientes de producao real, o ideal e fixar por digest imutavel, ex:
+#   FROM python:3.12-slim@sha256:<digest>
+# Aqui usamos a tag para fins didaticos, mas o professor deve mencionar
+# o pinning por digest como o passo seguinte de maturidade.
+FROM python:3.12-slim AS build
+
+WORKDIR /app
+
+COPY requirements.txt .
+
+# CORRIGIDO (FALHA 3): ainda nao ha um hash-check completo (isso exigiria
+# gerar um requirements com hashes via `pip-compile --generate-hashes`),
+# mas ja aplicamos duas melhorias importantes discutidas em aula:
+#   --no-cache-dir  -> nao deixa cache de download na camada da imagem
+#   --require-hashes (mencionado, comentado abaixo) -> forca que cada
+#   pacote tenha hash conferido, evitando dependencia adulterada.
+# Para habilitar de fato o --require-hashes, o requirements.txt precisaria
+# ser gerado com hashes (fora do escopo deste exemplo simplificado).
+RUN pip install --no-cache-dir -r requirements.txt
+# RUN pip install --no-cache-dir --require-hashes -r requirements.txt
+
+# ---------------------------------------------------------------------------
+# STAGE 2: runtime - imagem final, minima, sem ferramentas de build
+# ---------------------------------------------------------------------------
+# CORRIGIDO (estende a correcao da FALHA 1): build multi-stage. O estagio
+# final nao carrega compiladores nem arquivos temporarios do processo de
+# instalacao de dependencias, reduzindo o tamanho e a superficie de ataque
+# da imagem que efetivamente roda em producao.
+FROM python:3.12-slim AS runtime
+
+# Copia somente os pacotes Python ja instalados do estagio de build.
+COPY --from=build /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=build /usr/local/bin /usr/local/bin
+
+WORKDIR /app
+
+# CORRIGIDO (FALHA 2): cria um usuario e grupo dedicados, sem privilegios
+# administrativos, em vez de rodar como root (root e o padrao se nenhum
+# USER for definido). Isso limita o dano em caso de um escape de container:
+# o processo dentro do container nao tera privilegios de root nem dentro
+# nem fora dele.
+RUN groupadd --system taskflow && \
+    useradd --system --gid taskflow --home-dir /app --shell /usr/sbin/nologin taskflow
+
+# Copia o codigo da aplicacao e garante que o usuario nao-root seja o dono,
+# para poder ler os arquivos e (se necessario) escrever em locais especificos
+# como o banco SQLite.
+COPY --chown=taskflow:taskflow . .
+
+# CORRIGIDO (FALHA 4): o segredo ADMIN_PASSWORD NAO e mais definido aqui.
+# Segredos nunca devem ir para ENV/ARG no Dockerfile, pois ficam gravados
+# permanentemente nas camadas da imagem e podem ser extraidos por qualquer
+# pessoa com acesso a imagem, mesmo depois de "removidos" em uma camada
+# posterior (basta rodar `docker history` ou inspecionar as camadas).
+# Em vez disso, segredos devem ser injetados em tempo de execucao via:
+#   - variaveis de ambiente passadas no `docker run -e` (nunca no Dockerfile)
+#   - secrets do orquestrador (Docker Swarm secrets, Kubernetes Secrets)
+#   - um cofre de segredos (Vault, AWS Secrets Manager, etc.)
+# Nao ha substituto direto aqui de proposito: a aula demonstra que a
+# aplicacao deve ler o segredo do ambiente em tempo de execucao, nao builda-lo.
+
+# CORRIGIDO (FALHA 5 e FALHA 6): mantemos o EXPOSE apenas como documentacao
+# da porta usada (nao abre a porta por si só - isso e feito no `docker run
+# -p`). O problema real da FALHA 5/6 nao e a porta em si, mas usar o
+# servidor de desenvolvimento do Flask com debug=True em producao. Isso e
+# corrigido no codigo da aplicacao (fora do escopo deste Dockerfile) e,
+# aqui, documentamos que a imagem espera rodar com um servidor WSGI de
+# producao (ex: gunicorn) e sem debug habilitado.
+EXPOSE 5000
+
+# Usuario nao-root efetivo a partir daqui - qualquer comando do container
+# roda com privilegios limitados.
+USER taskflow
+
+# CORRIGIDO (FALHA 6): em vez de "python app.py" (que sobe o servidor de
+# desenvolvimento do Flask com debug), usamos gunicorn como servidor WSGI
+# de producao. Isso elimina o Werkzeug debugger interativo (que permite
+# execucao remota de codigo) e melhora performance/estabilidade.
+# Nota: gunicorn deve ser adicionado ao requirements.txt do projeto para
+# este CMD funcionar (nao incluido aqui pois foge do escopo do Modulo 2).
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "app:app"]
+
+# ---------------------------------------------------------------------------
+# Resumo das correcoes aplicadas nesta versao (ver Encontro 4 para detalhes):
+#   FALHA 1 -> tag fixada (python:3.12-slim) + multi-stage build
+#   FALHA 2 -> usuario e grupo dedicados nao-root (USER taskflow)
+#   FALHA 3 -> --no-cache-dir e caminho comentado para --require-hashes
+#   FALHA 4 -> segredo removido do Dockerfile (deve vir de fora, em runtime)
+#   FALHA 5 -> EXPOSE mantido apenas como documentacao, nao resolve sozinho
+#   FALHA 6 -> troca do servidor de desenvolvimento Flask por gunicorn
+# ---------------------------------------------------------------------------
