@@ -67,3 +67,5 @@ patch desta aplicação demonstrando o "antes" (vulnerável) e o "depois"
 ## Teste de proteção do branch
 
 Mudança de teste.
+
+Teste 2 - A vingança
