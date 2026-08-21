@@ -63,3 +63,7 @@ app-exemplo/
 Cada módulo cria, dentro da sua própria pasta `codigo/`, uma cópia ou um
 patch desta aplicação demonstrando o "antes" (vulnerável) e o "depois"
 (corrigido) referente ao tema daquele encontro.
+
+## Teste de proteção do branch
+
+Mudança de teste.
