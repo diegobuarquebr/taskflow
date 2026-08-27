@@ -1,0 +1,71 @@
+# =============================================================================
+# Workflow de exemplo: SAST (Semgrep) + Secret Scanning (Gitleaks)
+#
+# COMO USAR:
+#   Copie este arquivo para ".github/workflows/sast.yml" na raiz do seu
+#   repositório (o GitHub só reconhece workflows dentro dessa pasta exata).
+#
+# O QUE ELE FAZ:
+#   1. Roda o Semgrep contra o código-fonte Python usando rulesets públicos
+#      focados em Python/Flask/segurança geral.
+#   2. Roda o Gitleaks contra todo o histórico do repositório para detectar
+#      segredos (chaves, tokens, senhas) commitados.
+#   3. Falha o job (exit code != 0) se qualquer uma das ferramentas encontrar
+#      um problema, o que bloqueia o merge do Pull Request se o repositório
+#      tiver "branch protection" configurada para exigir o check verde.
+#
+# Este é o "caminho simples" descrito no Encontro 6: falhar o job e ler o
+# log do próprio GitHub Actions. Uma evolução possível (mencionada na aula,
+# não implementada aqui para não aumentar a complexidade) é publicar os
+# achados em formato SARIF na aba "Security > Code Scanning" do GitHub.
+# =============================================================================
+
+name: SAST e Secret Scanning
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  semgrep:
+    name: SAST - Semgrep
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Instalar Semgrep
+        run: pip install semgrep
+
+      - name: Rodar Semgrep (rulesets Python + Flask + auditoria de segurança)
+        run: |
+          semgrep scan \
+            --config=p/python \
+            --config=p/flask \
+            --config=p/security-audit \
+            --error \
+            app-exemplo/
+        # --error faz o Semgrep retornar exit code != 0 quando há findings,
+        # o que automaticamente marca este step (e o job) como "failed".
+
+  gitleaks:
+    name: Secret Scanning - Gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código (histórico completo)
+        uses: actions/checkout@v4
+        with:
+          # fetch-depth 0 traz todo o histórico de commits, não só o
+          # último commit. Segredos podem ter sido commitados e removidos
+          # depois - eles continuam vivos no histórico do Git!
+          fetch-depth: 0
+
+      - name: Rodar Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          # Em repositórios públicos gratuitos a action funciona sem
+          # necessidade de licença. GITHUB_TOKEN já é fornecido
+          # automaticamente pelo GitHub Actions.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
