@@ -5,6 +5,7 @@
 # FALHA 1: tag "latest" nao fixada -> build nao reprodutivel e pode
 # puxar uma imagem base com vulnerabilidades novas sem aviso.
 FROM python:latest
+#FROM python:3.12-slim
 
 # FALHA 2: executando como root (nenhum USER definido).
 WORKDIR /app
