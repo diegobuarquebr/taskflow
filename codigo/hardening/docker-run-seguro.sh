@@ -76,7 +76,6 @@ docker run \
   --name "$CONTAINER_NAME" \
   --rm \
   -d \
-  --read-only \
   -v "${VOLUME_NAME}:/app/data" \
   --tmpfs /tmp:rw,noexec,nosuid,size=64m \
   --cap-drop=ALL \
