@@ -98,7 +98,7 @@ USER taskflow
 # Nota: gunicorn deve ser adicionado ao requirements.txt do projeto para
 # este CMD funcionar (nao incluido aqui pois foge do escopo do Modulo 2).
 #CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "app:app"]
-CMD ["sh", "-c", "python -c 'from app import app, init_db;ctx = app.app_context();ctx.push();init_db()' && gunicorn --bind 0.0.0.0:5000 --workers 2 app:app"]
+CMD ["sh", "-c", "python -c 'from app import app, init_db; app.app_context().push(); init_db()' && gunicorn --bind 0.0.0.0:5000 --workers 2 app:app"]
 
 
 # ---------------------------------------------------------------------------

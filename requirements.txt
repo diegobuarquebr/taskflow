@@ -11,3 +11,4 @@ PyYAML==5.1
 requests==2.6.0
 markupsafe==2.0.1
 itsdangerous==0.24
+gunicorn
