@@ -58,7 +58,8 @@ WORKDIR /app
 # o processo dentro do container nao tera privilegios de root nem dentro
 # nem fora dele.
 RUN groupadd --system taskflow && \
-    useradd --system --gid taskflow --home-dir /app --shell /usr/sbin/nologin taskflow
+    useradd --system --gid taskflow --home-dir /app --shell /usr/sbin/nologin taskflow && \
+    chown taskflow:taskflow /app
 
 # Copia o codigo da aplicacao e garante que o usuario nao-root seja o dono,
 # para poder ler os arquivos e (se necessario) escrever em locais especificos
@@ -96,7 +97,9 @@ USER taskflow
 # execucao remota de codigo) e melhora performance/estabilidade.
 # Nota: gunicorn deve ser adicionado ao requirements.txt do projeto para
 # este CMD funcionar (nao incluido aqui pois foge do escopo do Modulo 2).
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "app:app"]
+#CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "app:app"]
+CMD ["sh", "-c", "python -c 'from app import app, init_db;ctx = app.app_context();ctx.push();init_db()' && gunicorn --bind 0.0.0.0:5000 --workers 2 app:app"]
+
 
 # ---------------------------------------------------------------------------
 # Resumo das correcoes aplicadas nesta versao (ver Encontro 4 para detalhes):
