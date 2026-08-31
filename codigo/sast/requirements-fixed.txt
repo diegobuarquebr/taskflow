@@ -1,0 +1,20 @@
+# Dependencias ATUALIZADAS para versoes sem CVEs conhecidas na data em que
+# este material foi escrito (julho/2026). Comparar com app-exemplo/requirements.txt
+# para ver a diferenca de versoes que motivou cada CVE corrigida.
+#
+# IMPORTANTE (leia antes de usar em aula):
+#   Novas CVEs sao descobertas o tempo todo, inclusive em versoes recentes.
+#   Antes de cada aula, o professor deve rodar novamente:
+#       pip-audit -r requirements-fixed.txt
+#       trivy fs .
+#   e VERIFICAR A VERSAO MAIS RECENTE DISPONIVEL NO MOMENTO DA AULA em
+#   https://pypi.org/project/<pacote>/ caso uma nova vulnerabilidade tenha
+#   sido publicada para alguma destas versoes depois da escrita deste
+#   material. Trate os numeros abaixo como "razoavelmente atuais e seguros
+#   em 2026", nao como verdade permanente.
+
+Flask==3.0.3
+Jinja2==3.1.4
+Werkzeug==3.0.6
+PyYAML==6.0.2
+requests==2.32.3
