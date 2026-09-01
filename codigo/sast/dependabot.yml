@@ -1,0 +1,55 @@
+# =============================================================================
+# Configuração de exemplo do GitHub Dependabot.
+#
+# COMO USAR:
+#   Copie este arquivo para ".github/dependabot.yml" na raiz do repositório
+#   (assim como os workflows, o Dependabot só é reconhecido nesse caminho
+#   exato). Depois disso, o próprio GitHub passa a escanear as dependências
+#   automaticamente - não é preciso configurar nenhum job de CI para isso.
+#
+# O QUE ACONTECE DEPOIS DE CONFIGURADO:
+#   1. O GitHub verifica periodicamente (conforme o "schedule" abaixo) se
+#      há novas versões disponíveis para as dependências do projeto e se
+#      alguma versão atualmente usada tem CVE conhecida.
+#   2. Quando encontra uma atualização de segurança, o Dependabot abre
+#      automaticamente um Pull Request no repositório já com o
+#      requirements.txt atualizado para a versão corrigida.
+#   3. O aluno (ou time) só precisa revisar o PR, conferir se os testes/
+#      pipeline de CI passam (inclusive o sast.yml e sca.yml deste módulo)
+#      e faz o merge.
+#
+# Isso fecha o ciclo: SCA manual (pip-audit/Trivy) encontra o problema HOJE;
+# Dependabot garante que amanhã, quando surgir uma CVE nova, alguém seja
+# avisado automaticamente sem precisar lembrar de rodar nada.
+# =============================================================================
+
+version: 2
+
+updates:
+  # Ecossistema Python (pip) - cobre o requirements.txt do app-exemplo.
+  - package-ecosystem: "pip"
+    directory: "/app-exemplo"
+    schedule:
+      # "weekly" é um bom equilíbrio para projetos didáticos e para a
+      # maioria dos projetos reais de porte pequeno/médio: nem tão raro
+      # que uma CVE fique semanas sem PR, nem tão frequente que gere
+      # fadiga de revisão de PRs no time.
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "security"
+    commit-message:
+      prefix: "sca"
+      include: "scope"
+
+  # Ecossistema GitHub Actions - também vale a pena manter atualizado,
+  # já que actions de terceiros (ex: gitleaks/gitleaks-action) também
+  # podem ter vulnerabilidades ou receber correções importantes.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "ci"
