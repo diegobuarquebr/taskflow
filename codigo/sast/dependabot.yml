@@ -28,7 +28,7 @@ version: 2
 updates:
   # Ecossistema Python (pip) - cobre o requirements.txt do app-exemplo.
   - package-ecosystem: "pip"
-    directory: "/app-exemplo"
+    directory: "/"
     schedule:
       # "weekly" é um bom equilíbrio para projetos didáticos e para a
       # maioria dos projetos reais de porte pequeno/médio: nem tão raro
