@@ -25,7 +25,7 @@ from flask import Flask, g, redirect, request, session, url_for
 # Uma ferramenta de SAST/secret-scanning (ex: Gitleaks, Semgrep) deve
 # sinalizar esta linha como "Hardcoded Secret".
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "s3gr3d0-super-secreto-nao-mude-nunca"
+app.config["SECRET_KEY"] = "s3gr3d0-super-secreto-mudei-agora"
 
 DATABASE = "taskflow.db"
 
