@@ -27,6 +27,14 @@ from flask import Flask, g, redirect, request, session, url_for
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "s3gr3d0-super-secreto-mudei-agora"
 
+# Formato de token GitHub (detectado imediatamente)
+GITHUB_TOKEN = "ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ123456"
+
+# AWS Access Key (formato fixo que o Gitleaks conhece)
+AWS_ACCESS_KEY_ID = "AKIAIOSFODNN7EXAMPLE"
+AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+
+
 DATABASE = "taskflow.db"
 
 
