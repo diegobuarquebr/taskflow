@@ -64,7 +64,6 @@ jobs:
       - name: Rodar Gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
-          # Em repositórios públicos gratuitos a action funciona sem
-          # necessidade de licença. GITHUB_TOKEN já é fornecido
-          # automaticamente pelo GitHub Actions.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: --log-opts="--all"   # força scan de todas as branches/refs
