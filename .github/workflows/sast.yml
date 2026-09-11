@@ -56,14 +56,21 @@ jobs:
       - name: Checkout do código (histórico completo)
         uses: actions/checkout@v4
         with:
-          # fetch-depth 0 traz todo o histórico de commits, não só o
-          # último commit. Segredos podem ter sido commitados e removidos
-          # depois - eles continuam vivos no histórico do Git!
           fetch-depth: 0
 
-      - name: Rodar Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          args: --log-opts="--all"   # força scan de todas as branches/refs
+      - name: Instalar Gitleaks
+        run: |
+          wget -qO- https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz \
+            | tar -xz gitleaks
+          sudo mv gitleaks /usr/local/bin/
+
+      - name: Rodar Gitleaks (histórico completo)
+        run: |
+          gitleaks detect \
+            --source . \
+            --redact \
+            --exit-code=2 \
+            --report-format=sarif \
+            --report-path=results.sarif \
+            --log-level=info
+          # Sem --log-opts: escaneia TODO o histórico git disponível
