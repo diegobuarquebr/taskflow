@@ -66,11 +66,4 @@ jobs:
 
       - name: Rodar Gitleaks (histórico completo)
         run: |
-          gitleaks detect \
-            --source . \
-            --redact \
-            --exit-code=2 \
-            --report-format=sarif \
-            --report-path=results.sarif \
-            --log-level=info
-          # Sem --log-opts: escaneia TODO o histórico git disponível
+          gitleaks detect --source .
