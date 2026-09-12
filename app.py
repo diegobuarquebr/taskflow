@@ -1,39 +1,60 @@
 """
-TaskFlow - Aplicacao de exemplo da disciplina DevSecOps.
+TaskFlow - Versao CORRIGIDA apos o Modulo 3 (SAST + Secret Scanning).
 
-ATENCAO: Esta aplicacao contem vulnerabilidades INTRODUZIDAS DE PROPOSITO
-para fins didaticos. NUNCA use este codigo como referencia de boas praticas
-e NUNCA implante em ambiente de producao ou exposto a internet.
+Este arquivo e o resultado do laboratorio do Encontro 6. A partir da versao
+vulneravel original (app-exemplo/app.py), corrigimos APENAS as
+vulnerabilidades de CODIGO que um SAST (Semgrep) e um secret scanner
+(Gitleaks) sabem detectar:
 
-Vulnerabilidades presentes nesta versao (linha de base do curso):
-  1. SQL Injection no login e na busca de tarefas (Modulo 3 - SAST)
-  2. Cross-Site Scripting (XSS) armazenado na descricao da tarefa (Modulo 3/4)
-  3. Segredo de sessao (SECRET_KEY) hardcoded no codigo (Modulo 1/3)
-  4. Senhas armazenadas em texto puro no banco (Modulo 2/3)
-  5. Endpoint de debug exposto publicamente (Modulo 2/4)
-  6. Dependencias com CVEs conhecidas em requirements.txt (Modulo 3 - SCA)
+  1. SQL Injection no login          -> CORRIGIDO (query parametrizada)
+  2. XSS armazenado na descricao      -> AINDA PRESENTE DE PROPOSITO
+  3. SECRET_KEY hardcoded             -> CORRIGIDO (variavel de ambiente)
+  4. Senha em texto puro              -> CORRIGIDO (hash com Werkzeug)
+  5. Endpoint /debug/info exposto     -> AINDA PRESENTE DE PROPOSITO
+  6. Dependencias com CVEs            -> tratado a parte no Encontro 7 (SCA),
+                                          ver codigo/requirements-fixed.txt
 
-Ao longo dos encontros, cada uma dessas falhas sera identificada por uma
-ferramenta especifica da esteira e corrigida em uma versao "fixed" do codigo.
+Os itens 2 e 5 (XSS e /debug/info exposto) sao mantidos INTACTOS de
+proposito nesta versao. Eles fogem do escopo de SAST/SCA e serao o alvo
+do Modulo 4 (DAST e OWASP Top 10), quando os alunos vao descobri-los com
+a aplicacao rodando (dynamic testing) em vez de lendo o codigo-fonte.
+Nao "adiante" a correcao deles aqui - isso e intencional no plano de aula.
 """
 
+import os
 import sqlite3
 
 from flask import Flask, g, redirect, request, session, url_for
+from werkzeug.security import check_password_hash, generate_password_hash
 
-# Vulnerabilidade #3: segredo hardcoded no repositorio.
-# Uma ferramenta de SAST/secret-scanning (ex: Gitleaks, Semgrep) deve
-# sinalizar esta linha como "Hardcoded Secret".
+# -----------------------------------------------------------------------
+# CORRECAO da Vulnerabilidade #3: SECRET_KEY hardcoded.
+#
+# Antes:
+#   app.config["SECRET_KEY"] = "s3gr3d0-super-secreto-nao-mude-nunca"
+#
+# Depois: o valor vem de uma variavel de ambiente (nunca commitada no
+# repositorio). Se a variavel nao existir, a aplicacao falha explicitamente
+# na inicializacao em vez de "cair para trás" silenciosamente em um valor
+# fixo - um fallback silencioso reintroduziria o mesmo problema.
+#
+# Como configurar localmente:
+#   export TASKFLOW_SECRET_KEY="um-valor-aleatorio-e-longo-gerado-por-voce"
+#
+# Em producao, este valor deveria vir de um cofre de segredos (ex: GitHub
+# Actions Secrets, AWS Secrets Manager, HashiCorp Vault) - assunto que
+# volta a aparecer nos modulos seguintes.
+# -----------------------------------------------------------------------
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "s3gr3d0-super-secreto-mudei-agora"
 
-# Formato de token GitHub (detectado imediatamente)
-GITHUB_TOKEN = "ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ123456"
-
-# AWS Access Key (formato fixo que o Gitleaks conhece)
-AWS_ACCESS_KEY_ID = "AKIAIOSFODNN7EXAMPLE"
-AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-
+_secret_key = os.environ.get("TASKFLOW_SECRET_KEY")
+if not _secret_key:
+    raise RuntimeError(
+        "Variavel de ambiente TASKFLOW_SECRET_KEY nao foi definida. "
+        "Configure-a antes de iniciar a aplicacao "
+        "(ex: export TASKFLOW_SECRET_KEY='valor-aleatorio-e-longo')."
+    )
+app.config["SECRET_KEY"] = _secret_key
 
 DATABASE = "taskflow.db"
 
@@ -77,14 +98,24 @@ def init_db():
 
     cur = db.execute("SELECT COUNT(*) AS total FROM users")
     if cur.fetchone()["total"] == 0:
-        # Vulnerabilidade #4: senha em texto puro, sem hashing.
+        # -----------------------------------------------------------
+        # CORRECAO da Vulnerabilidade #4: senha em texto puro.
+        #
+        # Antes: db.execute(..., ("admin", "admin123"))
+        #
+        # Depois: usamos generate_password_hash() do proprio Werkzeug
+        # (dependencia que o Flask ja traz) para armazenar apenas o HASH
+        # da senha, nunca a senha em si. generate_password_hash() ja
+        # cuida de aplicar "salt" automaticamente, entao dois usuarios
+        # com a mesma senha geram hashes diferentes no banco.
+        # -----------------------------------------------------------
         db.execute(
             "INSERT INTO users (username, password) VALUES (?, ?)",
-            ("admin", "admin123"),
+            ("admin", generate_password_hash("admin123")),
         )
         db.execute(
             "INSERT INTO users (username, password) VALUES (?, ?)",
-            ("aluno", "senha123"),
+            ("aluno", generate_password_hash("senha123")),
         )
         db.commit()
 
@@ -103,16 +134,36 @@ def login():
         username = request.form["username"]
         password = request.form["password"]
 
-        # Vulnerabilidade #1: SQL Injection.
-        # A query e montada por concatenacao de string em vez de usar
-        # parametros preparados (placeholders "?").
-
+        # -----------------------------------------------------------
+        # CORRECAO da Vulnerabilidade #1: SQL Injection no login.
+        #
+        # Antes: a query era montada por concatenacao de string,
+        # permitindo que um atacante enviasse, por exemplo,
+        #   username = admin' --
+        # para comentar o restante da query e autenticar sem senha.
+        #
+        # Depois: usamos uma query PARAMETRIZADA com placeholders "?".
+        # O driver sqlite3 trata os valores de "username" e "password"
+        # sempre como DADOS, nunca como parte do comando SQL - eles nao
+        # podem "escapar" da query e alterar sua estrutura, nao importa
+        # o que o usuario digite. Este e o mesmo padrao ja usado em
+        # get_db()/init_db() e no INSERT de new_task() no arquivo
+        # original: siga sempre esse exemplo.
+        # -----------------------------------------------------------
         db = get_db()
-        query = "SELECT * FROM users WHERE username = ? AND password = ?"
-        cur = db.execute(query, (username, password))
+        cur = db.execute(
+            "SELECT * FROM users WHERE username = ?", (username,)
+        )
         user = cur.fetchone()
 
-        if user:
+        # -----------------------------------------------------------
+        # Ajuste necessario por causa da correcao da Vulnerabilidade #4:
+        # agora que a senha esta armazenada como hash, nao podemos mais
+        # comparar "password == user['password']" diretamente. Usamos
+        # check_password_hash(), que recalcula o hash da senha recebida
+        # com o mesmo salt e compara com o hash salvo no banco.
+        # -----------------------------------------------------------
+        if user and check_password_hash(user["password"], password):
             session["user_id"] = user["id"]
             session["username"] = user["username"]
             return redirect(url_for("tasks"))
@@ -144,15 +195,22 @@ def tasks():
     db = get_db()
 
     if search:
-        # Vulnerabilidade #1 (variante): SQL Injection tambem na busca.
-        query = (
-            "SELECT * FROM tasks WHERE user_id = "
-            + str(session["user_id"])
-            + " AND title LIKE '%"
-            + search
-            + "%'"
-        )
-        rows = db.execute(query).fetchall()
+        # -----------------------------------------------------------
+        # CORRECAO da Vulnerabilidade #1 (variante): SQL Injection na
+        # busca de tarefas.
+        #
+        # Antes: "... AND title LIKE '%" + search + "%'" concatenado.
+        #
+        # Depois: o padrao de LIKE tambem pode (e deve) ser passado como
+        # parametro. Montamos a string "%termo%" em Python e a enviamos
+        # inteira como um UNICO parametro "?" - o SQLite nunca interpreta
+        # o conteudo de "search" como parte do comando SQL.
+        # -----------------------------------------------------------
+        like_pattern = f"%{search}%"
+        rows = db.execute(
+            "SELECT * FROM tasks WHERE user_id = ? AND title LIKE ?",
+            (session["user_id"], like_pattern),
+        ).fetchall()
     else:
         rows = db.execute(
             "SELECT * FROM tasks WHERE user_id = ?", (session["user_id"],)
@@ -160,9 +218,16 @@ def tasks():
 
     items = ""
     for row in rows:
-        # Vulnerabilidade #2: XSS armazenado. A descricao do usuario e
-        # inserida direto no HTML, sem escaping (Jinja2 com | safe
-        # ou f-string manual como aqui tem o mesmo efeito).
+        # -----------------------------------------------------------
+        # Vulnerabilidade #2 (XSS armazenado): MANTIDA DE PROPOSITO.
+        #
+        # A descricao da tarefa continua sendo inserida direto no HTML
+        # sem nenhum escaping. Um SAST como o Semgrep ja consegue
+        # sinalizar isso (regra de "unescaped template" / "XSS"), mas a
+        # correcao completa - e a discussao sobre por que isso importa
+        # na pratica - fica para o Modulo 4 (DAST / OWASP Top 10), onde
+        # os alunos vao explorar essa falha com a aplicacao rodando.
+        # -----------------------------------------------------------
         items += f"""
         <li>
             <b>{row['title']}</b> - {row['description']}
@@ -208,8 +273,15 @@ def new_task():
     """
 
 
-# Vulnerabilidade #5: endpoint de debug/diagnostico exposto sem
-# autenticacao, vazando informacoes internas do servidor.
+# -----------------------------------------------------------------------
+# Vulnerabilidade #5 (endpoint de debug exposto): MANTIDA DE PROPOSITO.
+#
+# Este endpoint continua publico e sem autenticacao. SAST estatico as
+# vezes acerta esse tipo de problema (ex: regra "debug endpoint exposed"),
+# mas o jeito mais didatico de descobrir e explorar isso e testando a
+# aplicacao rodando de fato - por isso a correcao definitiva fica para o
+# Modulo 4 (DAST), junto com a correcao do XSS acima.
+# -----------------------------------------------------------------------
 @app.route("/debug/info")
 def debug_info():
     import platform
@@ -225,6 +297,7 @@ def debug_info():
 if __name__ == "__main__":
     with app.app_context():
         init_db()
-    # debug=True em producao expoe o Werkzeug debugger interativo
-    # (execucao remota de codigo) - tambem sera sinalizado pelo SAST.
+    # debug=True continua ligado aqui de proposito, no mesmo espirito dos
+    # itens acima: sera corrigido junto com o hardening final de
+    # configuracao de execucao, discutido em modulos posteriores.
     app.run(host="0.0.0.0", port=5000, debug=True)
