@@ -108,7 +108,8 @@ def login():
         # parametros preparados (placeholders "?").
 
         db = get_db()
-        cur = db.execute(SELECT * FROM users WHERE username = ? AND password = ?)
+        query = "SELECT * FROM users WHERE username = ? AND password = ?"
+        cur = db.execute(query, (username, password))
         user = cur.fetchone()
 
         if user:
