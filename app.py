@@ -106,15 +106,9 @@ def login():
         # Vulnerabilidade #1: SQL Injection.
         # A query e montada por concatenacao de string em vez de usar
         # parametros preparados (placeholders "?").
-        query = (
-            "SELECT * FROM users WHERE username = '"
-            + username
-            + "' AND password = '"
-            + password
-            + "'"
-        )
+
         db = get_db()
-        cur = db.execute(query)
+        cur = db.execute("SELECT * FROM users WHERE username = ?", (username,))
         user = cur.fetchone()
 
         if user:
