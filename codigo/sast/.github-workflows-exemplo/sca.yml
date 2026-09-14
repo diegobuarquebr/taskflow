@@ -1,0 +1,51 @@
+# =============================================================================
+# Workflow de exemplo: SCA (Software Composition Analysis) com pip-audit
+#
+# COMO USAR:
+#   Copie este arquivo para ".github/workflows/sca.yml" na raiz do seu
+#   repositório, ao lado do "sast.yml" (Encontro 6). Juntos, os dois
+#   workflows formam a "esteira segura" de análise estática do Módulo 3:
+#   sast.yml cuida do SEU código, sca.yml cuida do código de TERCEIROS
+#   (bibliotecas) que você importa.
+#
+# O QUE ELE FAZ:
+#   Roda o pip-audit contra o requirements.txt do projeto, comparando cada
+#   dependência com o banco de dados de vulnerabilidades conhecidas mantido
+#   pela PyPA (Python Packaging Authority). Se encontrar qualquer CVE em
+#   qualquer dependência, o job falha.
+# =============================================================================
+
+name: SCA - Auditoria de Dependências
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  pip-audit:
+    name: SCA - pip-audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar pip-audit
+        run: pip install pip-audit
+
+      - name: Auditar requirements.txt do app-exemplo
+        run: pip-audit -r app-exemplo/requirements.txt
+        # Sem flags extras, pip-audit retorna exit code != 0 assim que
+        # encontra qualquer vulnerabilidade conhecida (CVE) em qualquer
+        # pacote listado, o que falha este step e o job inteiro.
+
+      # Dica mostrada em aula (não obrigatória): também é possível rodar
+      # "trivy fs app-exemplo/" aqui como segunda camada de verificação,
+      # já que o Trivy usa outras fontes de vulnerabilidade além do
+      # banco de dados da PyPA. Fica como exercício opcional.
