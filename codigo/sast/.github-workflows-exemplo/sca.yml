@@ -40,7 +40,7 @@ jobs:
         run: pip install pip-audit
 
       - name: Auditar requirements.txt do app-exemplo
-        run: pip-audit -r app-exemplo/requirements.txt
+        run: pip-audit -r requirements.txt
         # Sem flags extras, pip-audit retorna exit code != 0 assim que
         # encontra qualquer vulnerabilidade conhecida (CVE) em qualquer
         # pacote listado, o que falha este step e o job inteiro.
