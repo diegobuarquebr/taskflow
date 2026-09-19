@@ -4,7 +4,7 @@
 #
 # NAO instale estas versoes fora do ambiente de laboratorio da disciplina.
 
-Flask==0.12.2
+Flask==3.1.3
 Jinja2==2.11.3
 Werkzeug==0.15.4
 PyYAML==5.1
