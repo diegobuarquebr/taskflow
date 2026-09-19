@@ -1,14 +1,23 @@
-# Dependencias fixadas em versoes ANTIGAS DE PROPOSITO, para que
-# ferramentas de SCA (Software Composition Analysis) como pip-audit,
-# Safety, Trivy ou Dependabot encontrem CVEs conhecidas durante o curso.
+# Dependencias ATUALIZADAS para versoes sem CVEs conhecidas na data em que
+# este material foi escrito (julho/2026). Comparar com app-exemplo/requirements.txt
+# para ver a diferenca de versoes que motivou cada CVE corrigida.
 #
-# NAO instale estas versoes fora do ambiente de laboratorio da disciplina.
+# IMPORTANTE (leia antes de usar em aula):
+#   Novas CVEs sao descobertas o tempo todo, inclusive em versoes recentes.
+#   Antes de cada aula, o professor deve rodar novamente:
+#       pip-audit -r requirements-fixed.txt
+#       trivy fs .
+#   e VERIFICAR A VERSAO MAIS RECENTE DISPONIVEL NO MOMENTO DA AULA em
+#   https://pypi.org/project/<pacote>/ caso uma nova vulnerabilidade tenha
+#   sido publicada para alguma destas versoes depois da escrita deste
+#   material. Trate os numeros abaixo como "razoavelmente atuais e seguros
+#   em 2026", nao como verdade permanente.
 
-Flask==0.12.2
-Jinja2==2.11.3
-Werkzeug==0.15.4
-PyYAML==5.1
-requests==2.6.0
-markupsafe==2.0.1
-itsdangerous==0.24
+Flask==3.1.3
+Jinja2==3.1.6
+Werkzeug==3.1.6
+PyYAML==6.0.2
+requests==2.33.0
+markupsafe>=2.1.1
+itsdangerous==2.2.0
 gunicorn
