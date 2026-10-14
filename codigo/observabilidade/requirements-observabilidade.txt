@@ -1,0 +1,24 @@
+# Dependencias da versao instrumentada do TaskFlow (Modulo 6).
+#
+# Reaproveita as mesmas dependencias de app-exemplo/requirements.txt
+# (Flask) e NAO adiciona nenhuma biblioteca extra, porque o exemplo de
+# codigo deste modulo (app_instrumented.py) implementa o logging JSON
+# usando APENAS a biblioteca padrao `logging` do Python.
+
+Flask==0.12.2
+Jinja2==2.10.1
+Werkzeug==0.15.4
+PyYAML==5.1
+requests==2.6.0
+
+# ---------------------------------------------------------------------------
+# Alternativa de mercado (NAO usada no exemplo de codigo deste modulo,
+# mas mencionada em aula): python-json-logger
+#
+# E uma biblioteca leve e popular que oferece um Formatter JSON pronto,
+# parecido com o que escrevemos manualmente em app_instrumented.py.
+# Ela reduz a quantidade de codigo boilerplate e e uma otima escolha
+# para projetos reais. Para usa-la, descomente a linha abaixo e troque
+# o JsonFormatter customizado por `pythonjsonlogger.jsonlogger.JsonFormatter`.
+#
+# python-json-logger==2.0.7
