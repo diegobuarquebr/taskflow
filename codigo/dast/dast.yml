@@ -1,0 +1,107 @@
+# Workflow de exemplo: DAST com OWASP ZAP Baseline Scan no GitHub Actions
+#
+# Este arquivo fica em "codigo/.github-workflows-exemplo/" (fora de
+# ".github/workflows/") de proposito, para nao ser executado automaticamente
+# neste repositorio didatico. Para usar em um projeto real, copie este
+# arquivo para ".github/workflows/dast.yml" na raiz do repositorio.
+#
+# O que este workflow faz:
+#   1. Builda a imagem Docker do TaskFlow (versao corrigida).
+#   2. Sobe o container em background, aguardando a aplicacao responder.
+#   3. Roda a ZAP Baseline Scan Action oficial contra a aplicacao.
+#   4. Falha o job automaticamente se houver alertas de risco Medium ou
+#      acima, via o parametro "fail_action" combinado com as regras do ZAP.
+
+name: DAST - OWASP ZAP Baseline Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Tambem permite rodar manualmente pela interface do GitHub Actions.
+  workflow_dispatch:
+
+jobs:
+  dast-baseline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do repositorio
+        uses: actions/checkout@v4
+
+      - name: Build da imagem do TaskFlow (versao corrigida)
+        # Ajuste o "context"/"file" conforme a localizacao real do
+        # Dockerfile e do codigo no seu repositorio.
+        run: |
+          docker build \
+            -t taskflow:dast \
+            -f modulo-04-dast-pipeline/codigo/Dockerfile.taskflow \
+            modulo-04-dast-pipeline/codigo
+
+      - name: Subir o TaskFlow em background
+        run: |
+          docker run -d \
+            --name taskflow-ci \
+            -p 5000:5000 \
+            -e FLASK_SECRET_KEY=ci-apenas-para-teste \
+            -e FLASK_DEBUG=false \
+            taskflow:dast
+
+      - name: Aguardar a aplicacao ficar pronta
+        # A ZAP Baseline Scan Action falha se o alvo nao responder, entao
+        # aguardamos ativamente em vez de usar um "sleep" fixo (mais
+        # robusto a variacoes de tempo de start do container).
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sSf http://localhost:5000/login > /dev/null; then
+              echo "Aplicacao respondendo."
+              exit 0
+            fi
+            echo "Aguardando aplicacao subir... ($i/30)"
+            sleep 2
+          done
+          echo "Aplicacao nao respondeu a tempo." >&2
+          exit 1
+
+      - name: Rodar OWASP ZAP Baseline Scan
+        # Action oficial mantida pela comunidade ZAP/OWASP, disponivel no
+        # GitHub Marketplace como "zaproxy/action-baseline".
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: "http://localhost:5000"
+          # "cmd_options" repassa flags direto para o zap-baseline.py.
+          # "-a" faz o spidering tambem com o AJAX spider (util para apps
+          # com bastante JavaScript); pode ser removido se nao for
+          # necessario.
+          cmd_options: "-a"
+          # Gera um relatorio HTML e outro em Markdown como artefato do job.
+          # Por padrao a action ja publica um resumo no job summary.
+          allow_issue_writing: false
+
+      - name: Publicar relatorio do ZAP como artefato
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-report
+          path: |
+            report_html.html
+            report_md.md
+
+      - name: Encerrar o container do TaskFlow
+        if: always()
+        run: docker rm -f taskflow-ci || true
+
+  # Job separado, opcional: falha explicitamente o pipeline caso existam
+  # alertas de risco Medium ou acima. A "action-baseline" ja retorna um
+  # exit code diferente de zero quando ha alertas WARN-FAIL (conforme o
+  # arquivo de regras/.zap/rules.tsv do repositorio, se existir); a
+  # configuracao abaixo documenta como isso normalmente e feito, para que
+  # os alunos entendam a mecânica de "quebrar o build" por severidade.
+  #
+  # Por padrao, a action-baseline usa "return code 1" quando WARN vira
+  # FAIL de acordo com o arquivo de regras. Para forcar o pipeline a
+  # tratar isso como falha do job (e nao apenas um aviso), garanta que o
+  # passo "Rodar OWASP ZAP Baseline Scan" NAO tenha "continue-on-error:
+  # true" (como esta configurado acima) - assim, qualquer saida diferente
+  # de zero da action ja interrompe o job automaticamente.
