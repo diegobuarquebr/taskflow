@@ -1,0 +1,47 @@
+<!--
+    Template Jinja2 - Listagem de tarefas do TaskFlow.
+
+    Ponto-chave de seguranca (correcao da XSS armazenada do Modulo 3/4):
+    "task['title']" e "task['description']" vem diretamente do banco de
+    dados, ou seja, sao dados que o proprio usuario digitou ao criar a
+    tarefa - portanto NAO SAO CONFIAVEIS. Como este template usa
+    "{{ ... }}" (e nao "{{ ... | safe }}"), o Jinja2 aplica autoescape
+    automaticamente: qualquer "<", ">", "&", aspas etc. dentro da
+    descricao e convertido para a entidade HTML equivalente.
+
+    Resultado pratico: se alguem salvar uma descricao como
+    "<img src=x onerror=alert(1)>", o HTML final enviado ao navegador
+    contera "&lt;img src=x onerror=alert(1)&gt;" - texto literal, exibido
+    como caracteres na tela, e NAO como uma tag HTML interpretada. O
+    navegador nunca chega a executar o script.
+-->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>TaskFlow - Minhas tarefas</title>
+</head>
+<body>
+    <h1>Minhas tarefas ({{ username }})</h1>
+
+    <form method="get">
+        <input type="text" name="q" placeholder="buscar tarefa" value="{{ search }}">
+        <input type="submit" value="Buscar">
+    </form>
+
+    <ul>
+        {% for task in tasks %}
+        <li>
+            <!-- title e description passam pelo autoescape do Jinja2. -->
+            <b>{{ task['title'] }}</b> - {{ task['description'] }}
+            {% if task['done'] %}(feita){% endif %}
+        </li>
+        {% else %}
+        <li><em>Nenhuma tarefa encontrada.</em></li>
+        {% endfor %}
+    </ul>
+
+    <a href="{{ url_for('new_task') }}">Nova tarefa</a> |
+    <a href="{{ url_for('logout') }}">Sair</a>
+</body>
+</html>

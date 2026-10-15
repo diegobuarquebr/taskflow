@@ -1,0 +1,28 @@
+<!--
+    Template Jinja2 - Formulario de nova tarefa do TaskFlow.
+
+    Este template nao tem dados dinamicos vindos do usuario para exibir
+    (e apenas um formulario), mas segue o mesmo padrao dos demais por
+    consistencia: qualquer valor futuro adicionado aqui (por exemplo, um
+    campo pre-preenchido para edicao de tarefa) ja nasce protegido pelo
+    autoescape do Jinja2, sem que o desenvolvedor precise lembrar de
+    escapar manualmente.
+-->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>TaskFlow - Nova tarefa</title>
+</head>
+<body>
+    <h1>Nova tarefa</h1>
+
+    <form method="post">
+        Titulo: <input type="text" name="title"><br>
+        Descricao: <textarea name="description"></textarea><br>
+        <input type="submit" value="Salvar">
+    </form>
+
+    <a href="{{ url_for('tasks') }}">Voltar para minhas tarefas</a>
+</body>
+</html>

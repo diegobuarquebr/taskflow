@@ -1,0 +1,42 @@
+<!--
+    Template Jinja2 - Tela de login do TaskFlow.
+
+    Ponto-chave de seguranca: a variavel "error" (mensagem de erro de
+    login) e inserida com "{{ error }}". Por padrao, o Flask configura o
+    ambiente Jinja2 com "autoescape" LIGADO para arquivos ".html" - ou
+    seja, qualquer caractere especial de HTML dentro de "error" (como
+    "<", ">", "&") e automaticamente convertido para a entidade
+    equivalente (&lt;, &gt;, &amp;) antes de ser inserido na pagina.
+
+    Isso fecha, por exemplo, o cenario em que alguem tentasse usar o
+    proprio campo de usuario/senha para injetar HTML/JS que acabasse
+    refletido na mensagem de erro (um XSS refletido). NUNCA use o filtro
+    "| safe" aqui a nao ser que o conteudo seja 100% controlado pelo
+    desenvolvedor, nunca por entrada de usuario.
+-->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>TaskFlow - Login</title>
+</head>
+<body>
+    <h1>TaskFlow - Login</h1>
+
+    <form method="post">
+        Usuario: <input type="text" name="username"><br>
+        Senha: <input type="password" name="password"><br>
+        <input type="submit" value="Entrar">
+    </form>
+
+    {% if error %}
+        <!-- "error" passa pelo autoescape do Jinja2 automaticamente. -->
+        <p style="color:red">{{ error }}</p>
+    {% endif %}
+
+    <p>
+        Usuarios de teste do laboratorio:
+        <code>admin/admin123</code> e <code>aluno/senha123</code>.
+    </p>
+</body>
+</html>
