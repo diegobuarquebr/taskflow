@@ -21,7 +21,7 @@ COPY app_fixed_dast.py app.py
 COPY templates/ templates/
 
 # Boas praticas de hardening (Modulo 2): usuario nao-root.
-RUN useradd --create-home appuser
+RUN useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 5000
