@@ -1,0 +1,31 @@
+# Dockerfile.taskflow - Modulo 4 (DAST)
+#
+# Empacota a versao corrigida do TaskFlow (app_fixed_dast.py + templates/)
+# para ser usada com o docker-compose.yml deste modulo, permitindo que o
+# OWASP ZAP rode contra a aplicacao dentro da mesma rede Docker.
+#
+# Este Dockerfile ja aplica o hardening basico visto no Modulo 2
+# (usuario nao-root, tag de imagem fixada) para nao reintroduzir, por
+# descuido, falhas ja corrigidas em modulos anteriores.
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copiamos so o requirements primeiro para aproveitar cache de camadas.
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copiamos o app corrigido e os templates.
+COPY app_fixed_dast.py app.py
+COPY templates/ templates/
+
+# Boas praticas de hardening (Modulo 2): usuario nao-root.
+RUN useradd --create-home appuser
+USER appuser
+
+EXPOSE 5000
+
+ENV FLASK_DEBUG=false
+
+CMD ["python", "app.py"]
