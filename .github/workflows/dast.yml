@@ -81,7 +81,7 @@ jobs:
 
       - name: Publicar relatorio do ZAP como artefato
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: zap-baseline-report
           path: |
