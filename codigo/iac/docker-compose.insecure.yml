@@ -42,7 +42,7 @@ services:
       # publica para qualquer pessoa com acesso ao repositorio (e no
       # historico do Git, mesmo que a linha seja removida depois).
       - DATABASE_URL=postgresql://taskflow_admin:SenhaSuperSecreta123@db:5432/taskflow
-      - SECRET_KEY=s3gr3d0-super-secreto-nao-mude-nunca
+      - TASKFLOW_SECRET_KEY=s3gr3d0-super-secreto-nao-mude-nunca
     # FALHA 3: nenhuma definicao de "networks" - o Compose cria uma rede
     # padrao unica e coloca TODOS os servicos nela. Isso significa que,
     # se amanha adicionarmos um terceiro servico (por exemplo, um painel
