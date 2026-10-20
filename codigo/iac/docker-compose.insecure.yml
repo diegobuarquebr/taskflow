@@ -1,0 +1,95 @@
+# =============================================================================
+# docker-compose.insecure.yml - VERSAO INSEGURA usada no inicio do Encontro 11.
+#
+# Objetivo didatico: subir a aplicacao TaskFlow (app-exemplo/) junto de um
+# banco de dados, do jeito "mais rapido possivel", sem pensar em seguranca.
+# Cada comentario "# FALHA" marca uma pratica ruim que sera corrigida,
+# passo a passo, na aula, ate chegar em docker-compose.secure.yml.
+#
+# NAO use este arquivo como referencia. Ele existe apenas para comparacao
+# lado a lado com a versao corrigida.
+#
+# NOTA SOBRE O BANCO DE DADOS: a aplicacao TaskFlow real (app-exemplo/app.py)
+# usa SQLite embutido (arquivo taskflow.db), sem servidor de banco separado.
+# Para fins didaticos de Docker Compose - que so faz sentido demonstrar
+# orquestrando MULTIPLOS servicos - vamos simular aqui como se o TaskFlow
+# usasse um PostgreSQL externo (servico "db"). Isso e comum em aplicacoes
+# Flask reais e permite ensinar os conceitos de rede, secrets e dependencia
+# entre containers que o SQLite sozinho nao ilustraria. Nao se preocupe:
+# o container "db" sobe normalmente, mesmo que o app.py desta versao do
+# curso ainda nao esteja lendo essa variavel de conexao - o foco aqui e
+# a ORQUESTRACAO seguro, nao a migracao do app para Postgres.
+# =============================================================================
+
+version: "3.9"
+
+services:
+  web:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    image: taskflow:compose-insecure
+    ports:
+      # FALHA 1: publica a porta diretamente na interface 0.0.0.0 do host,
+      # sem necessidade, e ainda mapeando a porta padrao (5000) explicitamente
+      # nas duas pontas - qualquer maquina na mesma rede local consegue
+      # acessar o container, mesmo sem essa exposicao ser intencional.
+      - "5000:5000"
+    environment:
+      # FALHA 2: credenciais do banco de dados HARDCODED direto no
+      # docker-compose.yml, em texto puro. Esse arquivo normalmente VAI
+      # para o controle de versao (Git) - ou seja, a senha do banco fica
+      # publica para qualquer pessoa com acesso ao repositorio (e no
+      # historico do Git, mesmo que a linha seja removida depois).
+      - DATABASE_URL=postgresql://taskflow_admin:SenhaSuperSecreta123@db:5432/taskflow
+      - SECRET_KEY=s3gr3d0-super-secreto-nao-mude-nunca
+    # FALHA 3: nenhuma definicao de "networks" - o Compose cria uma rede
+    # padrao unica e coloca TODOS os servicos nela. Isso significa que,
+    # se amanha adicionarmos um terceiro servico (por exemplo, um painel
+    # de administracao interno), ele teria acesso de rede irrestrito tanto
+    # ao "web" quanto ao "db", mesmo sem nenhuma necessidade de conversar
+    # com o banco diretamente.
+    #
+    # FALHA 4: nenhum "healthcheck" definido - o Compose nao tem como saber
+    # se a aplicacao subiu corretamente ou travou; ela e considerada "up"
+    # assim que o processo do container inicia, mesmo que o Flask tenha
+    # crashado logo em seguida.
+    #
+    # FALHA 5: nenhum limite de recursos (deploy.resources.limits) - um bug
+    # ou um ataque de esgotamento de recursos (DoS local) dentro deste
+    # container pode consumir toda a CPU/memoria disponivel do host,
+    # afetando o container "db" e qualquer outra coisa rodando na maquina.
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16
+    environment:
+      # FALHA 2 (repetida aqui): mesma senha hardcoded, agora do lado do
+      # servidor de banco de dados.
+      - POSTGRES_USER=taskflow_admin
+      - POSTGRES_PASSWORD=SenhaSuperSecreta123
+      - POSTGRES_DB=taskflow
+    ports:
+      # FALHA 6: a porta do banco de dados esta exposta diretamente ao
+      # host (e, dependendo da rede, a maquina inteira). Um banco de dados
+      # nunca deveria ser acessivel de fora da rede interna dos containers
+      # que realmente precisam dele.
+      - "5432:5432"
+    # FALHA 7: sem "read_only", sem "healthcheck", sem limite de recursos -
+    # os mesmos problemas do servico "web" se repetem aqui.
+
+  # FALHA 8 (bonus - discutir em aula, nao incluido como servico ativo):
+  # e comum encontrar, em exemplos inseguros "de producao" reais, um
+  # servico de monitoramento ou CI local montando o socket do Docker do
+  # host assim:
+  #
+  #   monitor:
+  #     image: algum-painel-de-monitoramento
+  #     volumes:
+  #       - /var/run/docker.sock:/var/run/docker.sock
+  #
+  # Isso equivale a dar controle root da maquina host para dentro do
+  # container - qualquer vulnerabilidade nesse "painel" vira uma
+  # vulnerabilidade no host inteiro. Vamos discutir esse ponto na teoria,
+  # sem materializar o servico aqui.

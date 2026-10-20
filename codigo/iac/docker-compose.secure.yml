@@ -1,0 +1,146 @@
+# =============================================================================
+# docker-compose.secure.yml - VERSAO CORRIGIDA construida ao longo do
+# Encontro 11, aplicando, um a um, os pontos da teoria sobre seguranca em
+# Docker Compose.
+#
+# Cada comentario "# CORRIGIDO (FALHA N)" corresponde exatamente a mesma
+# numeracao usada em docker-compose.insecure.yml. Compare os dois arquivos
+# lado a lado durante a aula.
+#
+# Pre-requisito: copie codigo/.env.example para codigo/.env e preencha com
+# valores proprios (nunca reais/sensiveis em ambiente de aula) antes de
+# rodar `docker compose -f docker-compose.secure.yml up`.
+# =============================================================================
+
+version: "3.9"
+
+services:
+  web:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    image: taskflow:compose-secure
+    ports:
+      # CORRIGIDO (FALHA 1): continuamos publicando a porta porque a
+      # aplicacao web PRECISA ser acessada de fora (e o proposito dela).
+      # A diferenca agora e que ela e a UNICA porta exposta ao host em todo
+      # o arquivo - o banco de dados (abaixo) deixou de ser publicado.
+      # Em um ambiente de producao real, o ideal seria nem isso: a porta
+      # ficaria atras de um proxy reverso/load balancer, mas isso foge do
+      # escopo deste encontro.
+      - "5000:5000"
+    environment:
+      # CORRIGIDO (FALHA 2): nenhuma credencial em texto puro aqui. Os
+      # valores vem do arquivo ".env" (fora do controle de versao - ver
+      # .gitignore) atraves da interpolacao de variaveis do Compose
+      # (${VARIAVEL}). O arquivo .env.example, esse sim versionado, serve
+      # de documentacao de quais variaveis existem, sem conter segredos
+      # reais.
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - SECRET_KEY=${SECRET_KEY}
+    # CORRIGIDO (FALHA 3): rede dedicada "frontend" - o servico "web" so
+    # enxerga o que estiver conectado a essa mesma rede. Note que "web"
+    # tambem esta na rede "backend" (abaixo), porque ele PRECISA falar com
+    # o banco. Um terceiro servico hipotetico que so precisasse conversar
+    # com "web" (por exemplo, um proxy reverso) entraria apenas na rede
+    # "frontend", sem nunca conseguir alcancar "db" diretamente.
+    networks:
+      - frontend
+      - backend
+    # CORRIGIDO (item extra de boas praticas): filesystem raiz somente
+    # leitura. Como o Flask/gunicorn nao precisa escrever no filesystem da
+    # imagem em tempo de execucao (o unico dado persistente seria o banco,
+    # que aqui mora no container "db"), habilitamos read_only e liberamos
+    # apenas um diretorio temporario especifico via tmpfs, caso alguma
+    # biblioteca precise gravar arquivos temporarios.
+    read_only: true
+    tmpfs:
+      - /tmp
+    # CORRIGIDO (FALHA 5): limites explicitos de CPU e memoria. Isso evita
+    # que um bug, um vazamento de memoria ou um ataque de exaustao de
+    # recursos dentro deste container consiga derrubar o host inteiro ou
+    # os demais containers (incluindo o banco de dados).
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+    # CORRIGIDO (FALHA 4): healthcheck ativo. O Compose (e qualquer
+    # orquestrador que leia esse arquivo) passa a saber diferenciar um
+    # container "rodando" de um container "saudavel" - se o Flask travar
+    # ou parar de responder, o healthcheck falha e a ferramenta de
+    # orquestracao pode reiniciar o servico automaticamente.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/login')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16
+    environment:
+      # CORRIGIDO (FALHA 2, lado do banco): mesma logica - valores vem do
+      # .env, nunca hardcoded no compose.
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    # CORRIGIDO (FALHA 6): a porta do Postgres NAO e mais publicada para o
+    # host (nao ha mais bloco "ports:" aqui). Apenas servicos conectados a
+    # rede "backend" - neste caso, somente "web" - conseguem alcancar o
+    # banco, na porta interna 5432 da rede Docker. Ninguem fora dos
+    # containers consegue se conectar diretamente ao banco.
+    networks:
+      - backend
+    volumes:
+      # Volume nomeado para persistir os dados do banco entre reinicios do
+      # container, sem misturar com a discussao de read_only (o Postgres
+      # oficial precisa escrever em /var/lib/postgresql/data).
+      - taskflow_db_data:/var/lib/postgresql/data
+    # CORRIGIDO (extra): limites de recursos tambem no banco de dados -
+    # ele e tao candidato a esgotamento de recursos quanto a aplicacao.
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+    # CORRIGIDO (FALHA 4, lado do banco): healthcheck usando a propria
+    # ferramenta de diagnostico do Postgres (pg_isready). E este
+    # healthcheck que permite ao servico "web" usar "depends_on -> condition:
+    # service_healthy" acima, garantindo que a aplicacao so tente conectar
+    # depois que o banco estiver de fato pronto para aceitar conexoes.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# CORRIGIDO (FALHA 3, definicao das redes): duas redes isoladas em vez da
+# rede unica padrao do Compose.
+#   - frontend: onde ficaria, por exemplo, um proxy reverso ou qualquer
+#     servico que precise ser exposto/alcancado de fora.
+#   - backend: rede interna, exclusiva para comunicacao entre a aplicacao
+#     e o banco de dados. Nenhum servico de "frontend" que nao esteja
+#     tambem listado em "backend" consegue alcancar o banco.
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+    internal: false  # em um cenario 100% isolado (sem NAT de saida), poderia ser "true"
+
+volumes:
+  taskflow_db_data:
+
+# =============================================================================
+# NAO INCLUIDO NESTE ARQUIVO (discutir apenas na teoria):
+#   - Nenhum servico aqui monta "/var/run/docker.sock" dentro de um
+#     container. Se algum dia voce precisar de um servico que gerencia
+#     outros containers (ex: um dashboard de monitoramento local), avalie
+#     alternativas com escopo reduzido (ex: proxies de socket com
+#     permissao somente-leitura, como o "docker-socket-proxy") em vez de
+#     montar o socket diretamente.
+# =============================================================================
