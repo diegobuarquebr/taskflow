@@ -26,4 +26,4 @@ ENV ADMIN_PASSWORD=admin123
 EXPOSE 5000
 
 # FALHA 6: container roda com debug habilitado e como root.
-CMD ["python", "app.py"]
+CMD ["python", "app_iac.py"]
