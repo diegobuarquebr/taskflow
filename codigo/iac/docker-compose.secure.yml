@@ -37,7 +37,7 @@ services:
       # de documentacao de quais variaveis existem, sem conter segredos
       # reais.
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      - SECRET_KEY=${SECRET_KEY}
+      - TASKFLOW_SECRET_KEY=${SECRET_KEY}
     # CORRIGIDO (FALHA 3): rede dedicada "frontend" - o servico "web" so
     # enxerga o que estiver conectado a essa mesma rede. Note que "web"
     # tambem esta na rede "backend" (abaixo), porque ele PRECISA falar com
