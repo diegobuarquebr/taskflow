@@ -1,0 +1,16 @@
+# Provisionamento automatico do data source Loki no Grafana.
+#
+# Isso evita que o aluno precise configurar manualmente "Add data
+# source" na interface do Grafana durante a aula - o Grafana le este
+# arquivo na inicializacao (ver volume montado em docker-compose.yml)
+# e ja sobe com o Loki pronto para uso em Explore/Dashboards.
+
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: true
+    editable: true
