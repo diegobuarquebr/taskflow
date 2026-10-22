@@ -1,0 +1,49 @@
+# Configuracao do Promtail para o laboratorio do Modulo 6.
+#
+# Promtail funciona de forma parecida com o "tail -f": ele fica
+# observando um ou mais arquivos de log, e a cada linha nova, envia
+# para o Loki, junto com "labels" (rotulos) que permitem filtrar
+# depois no Grafana (ex.: job="taskflow").
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+# Onde o Promtail guarda o "ponteiro" de ate onde ja leu cada arquivo
+# (equivalente a um offset), para nao reenviar tudo caso reinicie.
+positions:
+  filename: /tmp/positions.yaml
+
+# Endereco do Loki para onde os logs serao enviados.
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: taskflow
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          # "job" e o rotulo que usamos nas queries LogQL em aula,
+          # ex.: {job="taskflow"}
+          job: taskflow
+          app: taskflow
+          # Caminho DENTRO do container do Promtail (ver o volume
+          # montado em docker-compose.yml: ./logs:/var/log/taskflow:ro)
+          __path__: /var/log/taskflow/*.log
+
+    # Pipeline de processamento: como cada linha (que ja e um JSON,
+    # gracas ao JsonFormatter do app_instrumented.py) e uma linha por
+    # log, extraimos alguns campos do JSON para virarem labels
+    # pesquisaveis no Loki. Isso e opcional (o Loki tambem permite
+    # buscar por texto livre dentro do JSON com o operador `|=`), mas
+    # transformar "level" e "event" em labels deixa filtros comuns
+    # (ex.: so WARNING, so login_attempt) muito mais rapidos.
+    pipeline_stages:
+      - json:
+          expressions:
+            level: level
+            event: event
+      - labels:
+          level:
+          event:
