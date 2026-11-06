@@ -67,7 +67,7 @@ jobs:
       - name: Rodar OWASP ZAP Baseline Scan
         # Action oficial mantida pela comunidade ZAP/OWASP, disponivel no
         # GitHub Marketplace como "zaproxy/action-baseline".
-        uses: zaproxy/action-baseline@v0.12.0
+        uses: zaproxy/action-baseline@v0.15.0
         with:
           target: "http://localhost:5000"
           # "cmd_options" repassa flags direto para o zap-baseline.py.
